@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f3a5f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Magazzino Tubolari</title>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+:root{
+  --bg:#f3f4f6; --surface:#ffffff; --ink:#0b0b0b; --ink2:#52514e; --muted:#8a8984; --line:#e2e2de;
+  --brand:#1f3a5f; --brand-ink:#ffffff;
+  --s1:#2a78d6; --s2:#eb6834;
+  --ok:#0f7b3f; --ok-bg:#e3f4ea; --crit:#b42318; --crit-bg:#fde8e7; --warn:#9a6700; --warn-bg:#fff4d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111111; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#8f8e86; --line:#2e2e2b;
+    --brand:#2c5282; --s1:#3987e5; --s2:#d95926;
+    --ok:#5cc98a; --ok-bg:#12301f; --crit:#f2877c; --crit-bg:#3a1513; --warn:#e5b54a; --warn-bg:#352a0c;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111111; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#8f8e86; --line:#2e2e2b;
+  --brand:#2c5282; --s1:#3987e5; --s2:#d95926;
+  --ok:#5cc98a; --ok-bg:#12301f; --crit:#f2877c; --crit-bg:#3a1513; --warn:#e5b54a; --warn-bg:#352a0c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+header{background:var(--brand);color:var(--brand-ink);padding:12px 16px calc(12px) ;padding-top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px}
+header h1{font-size:17px;margin:0;flex:1}
+#rete{font-size:12px;padding:3px 8px;border-radius:99px;background:rgba(255,255,255,.15)}
+nav{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+nav button{flex:1;border:0;background:none;padding:12px 2px;font:inherit;font-size:14px;font-weight:600;color:var(--ink2);border-bottom:3px solid transparent}
+nav button.on{color:var(--ink);border-bottom-color:var(--s1)}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.view{display:none}.view.on{display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 10px}
+#reader{width:100%;max-width:480px;margin:0 auto;border-radius:10px;overflow:hidden}
+#reader video{border-radius:10px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;width:100%}
+label{font-size:13px;color:var(--ink2);display:block;margin:10px 0 4px}
+.btn{font:inherit;font-weight:700;border:0;border-radius:10px;padding:14px 16px;cursor:pointer;background:var(--line);color:var(--ink)}
+.btn.carico{background:var(--s1);color:#fff}.btn.scarico{background:var(--s2);color:#fff}
+.btn.pri{background:var(--brand);color:#fff}
+.btn.big{flex:1;font-size:17px;padding:18px}
+.btn[disabled]{opacity:.5}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:48px;height:48px;font-size:22px}
+.stepper input{width:80px;text-align:center;font-size:20px;font-weight:700}
+.art-titolo{font-size:20px;font-weight:700;margin:0}
+.art-sub{color:var(--ink2);margin:2px 0 12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi .v{font-size:26px;font-weight:700}.kpi .l{font-size:13px;color:var(--ink2)}
+.grid2{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:900px){.grid2{grid-template-columns:1fr 1fr}}
+.chartbox{position:relative;height:300px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+th{color:var(--ink2);font-weight:600;font-size:13px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px}
+.badge.crit{background:var(--crit-bg);color:var(--crit)}.badge.ok{background:var(--ok-bg);color:var(--ok)}.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.msg{padding:12px;border-radius:10px;margin:10px 0;font-weight:600}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.err{background:var(--crit-bg);color:var(--crit)}.msg.warn{background:var(--warn-bg);color:var(--warn)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.filters select{width:auto}
+.muted{color:var(--muted);font-size:13px}
+.hidden{display:none!important}
+.scroll{max-height:420px;overflow:auto}
+.btn.mini{padding:6px 10px;font-size:13px}
+#anteprima{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+#anteprima .lab{background:#fff;color:#000;border:1px dashed var(--line);border-radius:6px}
+/* Etichetta 70x37 mm */
+.lab{width:70mm;height:37mm;display:flex;align-items:center;gap:2.5mm;padding:0 2mm 0 2.5mm;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff;box-sizing:border-box}
+.lab .qr{width:29mm;height:29mm;flex:none}
+.lab .qr svg{width:100%;height:100%;display:block}
+.lab .t{display:flex;flex-direction:column;gap:.6mm;min-width:0}
+.lab .cat{font-size:7.5pt}
+.lab .prof{font-size:15pt;font-weight:700;line-height:1.05;white-space:nowrap}
+.lab .prof.m{font-size:11pt}.lab .prof.s{font-size:9pt}
+.lab .sp{font-size:10pt;font-weight:700}
+.lab .fin{font-size:8.5pt;font-weight:700;align-self:flex-start;padding:0 1mm;margin-left:-1mm}
+.lab .fin.z{background:#000;color:#fff}
+.lab .pz{font-size:7.5pt}.lab .cod{font-size:6pt;margin-top:1mm}
+#stampa{display:none}
+@media print{
+  @page{size:A4;margin:0}
+  html,body{background:#fff!important}
+  body>*:not(#stampa){display:none!important}
+  #stampa{display:block}
+  .foglio{width:210mm;height:297mm;padding:0.5mm 0;display:grid;grid-template-columns:repeat(3,70mm);grid-auto-rows:37mm;align-content:start;page-break-after:always;break-after:page}
+  .foglio:last-child{page-break-after:auto;break-after:auto}
+}
+</style>
+</head>
+<body>
+<header><h1>Magazzino Tubolari</h1><span id="rete">…</span></header>
+<nav>
+  <button data-v="scan" class="on">Scansiona</button>
+  <button data-v="cruscotto">Cruscotto</button>
+  <button data-v="giacenza">Giacenza</button>
+  <button data-v="etichette">Etichette</button>
+  <button data-v="impostazioni">Opzioni</button>
+</nav>
+<main>
+
+<!-- SCANSIONE -->
+<section id="v-scan" class="view on">
+  <div id="avvisoConfig" class="msg warn hidden">Prima apri <b>Opzioni</b> e inserisci l'indirizzo dello script e la chiave.</div>
+  <div class="card" id="boxScanner">
+    <div id="reader"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn pri" id="btnCam" style="flex:1">Avvia fotocamera</button>
+    </div>
+    <label for="manuale">Oppure scrivi il codice</label>
+    <div class="row"><input id="manuale" list="listaCodici" placeholder="es. QUA-40x40-2-N" autocapitalize="characters" style="flex:1"><button class="btn" id="btnManuale">Cerca</button></div>
+    <datalist id="listaCodici"></datalist>
+  </div>
+
+  <div class="card hidden" id="boxArticolo">
+    <p class="art-titolo" id="artTitolo"></p>
+    <p class="art-sub" id="artSub"></p>
+    <label>Numero di pacchi</label>
+    <div class="stepper"><button class="btn" id="meno">−</button><input id="pacchi" type="number" min="1" value="1" inputmode="numeric"><button class="btn" id="piu">+</button></div>
+    <label for="note">Note (facoltative)</label>
+    <input id="note" placeholder="es. cliente, ordine, fornitore">
+    <div class="row" style="margin-top:14px">
+      <button class="btn big carico" id="btnCarico">CARICO</button>
+      <button class="btn big scarico" id="btnScarico">SCARICO</button>
+    </div>
+    <div id="esito"></div>
+    <button class="btn" id="btnAltro" style="width:100%;margin-top:10px">Scansiona un altro pacco</button>
+  </div>
+
+  <div class="card">
+    <h2>Ultimi movimenti da questo telefono</h2>
+    <div id="coda" class="msg warn hidden"></div>
+    <table><tbody id="ultimi"></tbody></table>
+  </div>
+</section>
+
+<!-- CRUSCOTTO -->
+<section id="v-cruscotto" class="view">
+  <div class="filters">
+    <select id="fPeriodo">
+      <option value="30">Ultimi 30 giorni</option>
+      <option value="90">Ultimi 3 mesi</option>
+      <option value="anno" selected>Anno in corso</option>
+      <option value="365">Ultimi 12 mesi</option>
+    </select>
+    <select id="fCategoria"><option value="">Tutte le categorie</option></select>
+    <select id="fFinitura"><option value="">Nero e zincato</option><option>Nero</option><option>Zincato</option></select>
+    <button class="btn" id="btnAggiorna">Aggiorna</button>
+  </div>
+  <p class="muted" id="aggiornato"></p>
+  <div class="kpis">
+    <div class="kpi"><div class="v" id="kPacchi">–</div><div class="l">Pacchi in magazzino</div></div>
+    <div class="kpi"><div class="v" id="kML">–</div><div class="l">Metri lineari in giacenza</div></div>
+    <div class="kpi"><div class="v" id="kScarichi">–</div><div class="l">Pacchi scaricati nel periodo</div></div>
+    <div class="kpi"><div class="v" id="kSotto">–</div><div class="l">Articoli sottoscorta</div></div>
+  </div>
+  <div class="card" id="boxSotto">
+    <h2>Sottoscorta e in esaurimento</h2>
+    <p class="muted">Previsione basata sul consumo medio degli ultimi 90 giorni.</p>
+    <div class="scroll"><table><thead><tr><th>Articolo</th><th class="n">Giacenza</th><th class="n">Scorta min.</th><th class="n">Finisce tra</th></tr></thead><tbody id="tSotto"></tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Profili più scaricati (pacchi)</h2><div class="chartbox"><canvas id="cTop"></canvas></div></div>
+    <div class="card"><h2>Carichi e scarichi per mese (metri lineari)</h2><div class="chartbox"><canvas id="cMesi"></canvas></div></div>
+  </div>
+  <div class="card"><h2>Giacenza per categoria (metri lineari)</h2><div class="chartbox" style="height:240px"><canvas id="cCat"></canvas></div></div>
+</section>
+
+<!-- GIACENZA -->
+<section id="v-giacenza" class="view">
+  <div class="card">
+    <div class="row"><input id="cerca" placeholder="Cerca profilo o codice (es. 40x40, zinc, tondi)" style="flex:1"></div>
+    <label class="row" style="gap:6px"><input type="checkbox" id="soloPresenti" style="width:auto" checked> Solo articoli presenti</label>
+    <div class="scroll" style="max-height:none"><table><thead><tr><th>Articolo</th><th class="n">Pacchi</th><th class="n">Pezzi</th><th class="n">ML</th><th></th></tr></thead><tbody id="tGiac"></tbody></table></div>
+  </div>
+</section>
+
+<!-- ETICHETTE -->
+<section id="v-etichette" class="view">
+  <div class="card">
+    <h2>Crea etichette</h2>
+    <p class="muted">Foglio A4 da 24 etichette adesive 70×37 mm (3 colonne × 8 righe). Stampa al 100%, senza "adatta alla pagina".</p>
+    <label for="eArt">Articolo</label>
+    <input id="eArt" list="listaCodici" placeholder="Codice o profilo (es. QUA-40x40-2-N)" autocapitalize="characters">
+    <div class="row" style="margin-top:8px">
+      <div class="stepper"><button class="btn" id="eMeno">−</button><input id="eQta" type="number" min="1" value="1" inputmode="numeric"><button class="btn" id="ePiu">+</button></div>
+      <button class="btn pri" id="eAggiungi" style="flex:1">Aggiungi</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn mini" id="eGiacenza">Una per ogni pacco in giacenza</button>
+      <button class="btn mini" id="eTipi">Una per ogni tipo</button>
+      <select id="eCat" style="width:auto"><option value="">Tutte le categorie</option></select>
+    </div>
+  </div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Da stampare: <span id="eTot">0</span> etichette (<span id="eFogli">0</span> fogli)</h2>
+      <button class="btn mini" id="eSvuota">Svuota</button></div>
+    <label for="eSalta">Etichette già usate sul primo foglio (da saltare)</label>
+    <input id="eSalta" type="number" min="0" max="23" value="0" inputmode="numeric" style="width:100px">
+    <table style="margin-top:10px"><tbody id="eLista"></tbody></table>
+    <button class="btn pri" id="eStampa" style="width:100%;margin-top:14px">Stampa / salva PDF</button>
+    <h2 style="margin-top:16px">Anteprima</h2>
+    <div id="anteprima"></div>
+  </div>
+</section>
+
+<!-- IMPOSTAZIONI -->
+<section id="v-impostazioni" class="view">
+  <div class="card">
+    <h2>Collegamento al foglio</h2>
+    <label for="sUrl">Indirizzo dello script (finisce con /exec)</label>
+    <input id="sUrl" placeholder="https://script.google.com/macros/s/…/exec">
+    <label for="sKey">Chiave</label>
+    <input id="sKey" type="password">
+    <label for="sOp">Nome operatore</label>
+    <input id="sOp" placeholder="es. Mario">
+    <div class="row" style="margin-top:14px"><button class="btn pri" id="btnSalva" style="flex:1">Salva e prova collegamento</button></div>
+    <div id="esitoImp"></div>
+  </div>
+  <div class="card">
+    <h2>Installare l'app sul telefono</h2>
+    <p class="muted">Android (Chrome): menu ⋮ → <b>Aggiungi a schermata Home</b>. iPhone (Safari): Condividi → <b>Aggiungi a Home</b>.</p>
+  </div>
+</section>
+</main>
+<div id="stampa"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+let cfg = LS.get('cfg', {url:'', key:'', op:''});
+let dati = LS.get('dati', null);           // ultima copia dei dati (serve anche offline)
+let coda = LS.get('coda', []);              // movimenti non ancora inviati
+let ultimi = LS.get('ultimi', []);
+let corrente = null, scanner = null, scanAttivo = false, charts = {};
+
+/* ---------- utilità ---------- */
+const nf = new Intl.NumberFormat('it-IT');
+const sigla = {Quadri:'Quadro', Rettangoli:'Rettangolo', Tondi:'Tondo', Serramenti:'Serramento', Omega:'Omega'};
+const nome = a => `${sigla[a.categoria]||a.categoria} ${a.profilo} sp. ${String(a.spessore).replace('.',',')}`;
+const nomeCorto = a => `${a.profilo} sp${String(a.spessore).replace('.',',')} ${a.finitura==='Zincato'?'Z':'N'}`;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function api(params){
+  if(!cfg.url || !cfg.key) throw new Error('Configura prima le Impostazioni');
+  const u = new URL(cfg.url);
+  if('c' in params){ params = {...params, cod: params.c}; delete params.c; }   // 'c' è riservato da Google
+  Object.entries({...params, k: cfg.key}).forEach(([k,v]) => u.searchParams.set(k, v));
+  let r;
+  try { r = await fetch(u.toString(), {redirect:'follow'}); }
+  catch(e){ const err = new Error('Nessuna connessione'); err.rete = true; throw err; }
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.errore || 'Errore');
+  return j;
+}
+
+function stato(){
+  const on = navigator.onLine;
+  $('#rete').textContent = on ? (coda.length ? `Online · ${coda.length} da inviare` : 'Online') : `Offline${coda.length ? ' · '+coda.length+' in coda' : ''}`;
+  $('#avvisoConfig').classList.toggle('hidden', !!(cfg.url && cfg.key));
+  const box = $('#coda');
+  box.classList.toggle('hidden', !coda.length);
+  box.textContent = coda.length ? `${coda.length} movimenti salvati sul telefono: verranno inviati appena torna la connessione.` : '';
+}
+
+/* ---------- navigazione ---------- */
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + b.dataset.v));
+  if(b.dataset.v !== 'scan') fermaScanner();
+  if(b.dataset.v === 'cruscotto') { disegna(); caricaDati(); }
+  if(b.dataset.v === 'giacenza') { listaGiacenza(); caricaDati(); }
+  if(b.dataset.v === 'etichette') { mostraEt(); caricaDati().then(mostraEt); }
+});
+
+/* ---------- scansione ---------- */
+async function avviaScanner(){
+  if(scanAttivo) return fermaScanner();
+  try{
+    scanner = scanner || new Html5Qrcode('reader', {formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE]});
+    await scanner.start({facingMode:'environment'}, {fps:10, qrbox:(w,h)=>{const s=Math.floor(Math.min(w,h)*0.7);return {width:s,height:s};}}, testo => {
+      fermaScanner(); if(navigator.vibrate) navigator.vibrate(80); apriArticolo(testo);
+    });
+    scanAttivo = true; $('#btnCam').textContent = 'Ferma fotocamera';
+  }catch(e){ alertMsg('#esito', 'Fotocamera non disponibile: ' + e, 'err'); }
+}
+async function fermaScanner(){
+  if(scanner && scanAttivo){ try{ await scanner.stop(); }catch(e){} }
+  scanAttivo = false; $('#btnCam').textContent = 'Avvia fotocamera';
+}
+function alertMsg(sel, testo, tipo){ $(sel).innerHTML = `<div class="msg ${tipo}">${esc(testo)}</div>`; }
+
+function pulisciCodice(t){
+  t = String(t).trim();
+  try{ const u = new URL(t); if(u.searchParams.get('c')) t = u.searchParams.get('c'); }catch(e){}
+  return t;
+}
+function trovaLocale(c){ return dati && dati.articoli.find(a => a.codice.toUpperCase() === c.toUpperCase()); }
+
+async function apriArticolo(testo){
+  const c = pulisciCodice(testo);
+  $('#esito').innerHTML = '';
+  let a = trovaLocale(c);
+  mostraArticolo(a || {codice:c});
+  try{ const j = await api({a:'articolo', c}); a = j.articolo; aggiornaLocale(a); mostraArticolo(a); }
+  catch(e){ if(!e.rete) { alertMsg('#esito', e.message, 'err'); corrente = null; } }
+}
+function mostraArticolo(a){
+  corrente = a;
+  $('#boxScanner').classList.add('hidden'); $('#boxArticolo').classList.remove('hidden');
+  $('#pacchi').value = 1; $('#note').value = '';
+  if(a.profilo){
+    $('#artTitolo').textContent = nome(a) + ' · ' + a.finitura;
+    $('#artSub').innerHTML = `${esc(a.codice)} · pacco da ${a.pezzi} pezzi (${a.ml} ML)<br>In giacenza: <b>${a.giacenza} pacchi</b>` +
+      (a.scorta!=null && a.giacenza < a.scorta ? ' <span class="badge crit">⚠ Sottoscorta</span>' : '');
+  } else { $('#artTitolo').textContent = a.codice; $('#artSub').textContent = 'Dati articolo non disponibili offline'; }
+}
+function aggiornaLocale(a){
+  if(!dati) return; const i = dati.articoli.findIndex(x => x.codice === a.codice);
+  if(i >= 0){ dati.articoli[i] = a; LS.set('dati', dati); }
+}
+$('#btnCam').onclick = avviaScanner;
+$('#btnManuale').onclick = () => { if($('#manuale').value.trim()) { fermaScanner(); apriArticolo($('#manuale').value); } };
+$('#manuale').onkeydown = e => { if(e.key === 'Enter') $('#btnManuale').click(); };
+$('#meno').onclick = () => $('#pacchi').value = Math.max(1, (+$('#pacchi').value||1) - 1);
+$('#piu').onclick = () => $('#pacchi').value = (+$('#pacchi').value||0) + 1;
+$('#btnAltro').onclick = () => { $('#boxArticolo').classList.add('hidden'); $('#boxScanner').classList.remove('hidden'); $('#manuale').value=''; avviaScanner(); };
+$('#btnCarico').onclick = () => registra('Carico');
+$('#btnScarico').onclick = () => registra('Scarico');
+
+async function registra(tipo){
+  if(!corrente) return;
+  const n = parseInt($('#pacchi').value, 10);
+  if(!(n > 0)) return alertMsg('#esito', 'Numero di pacchi non valido', 'err');
+  if(tipo === 'Scarico' && corrente.giacenza != null && n > corrente.giacenza)
+    return alertMsg('#esito', `In giacenza ci sono solo ${corrente.giacenza} pacchi`, 'err');
+  if(!cfg.op && !confirm('Nessun nome operatore impostato. Registrare comunque?')) return;
+  const m = {id:uid(), c:corrente.codice, t:tipo, n, o:cfg.op||'', note:$('#note').value.trim(), ts:Date.now()};
+  ['#btnCarico','#btnScarico'].forEach(s => $(s).disabled = true);
+  try{
+    const j = await api({a:'movimento', ...m});
+    corrente = j.articolo; aggiornaLocale(j.articolo); mostraArticolo(j.articolo);
+    alertMsg('#esito', `${tipo} registrato: ${n} pacchi. Giacenza ora ${j.articolo.giacenza}.`, 'ok');
+    storico(m, 'inviato');
+  }catch(e){
+    if(e.rete){ coda.push(m); LS.set('coda', coda); storico(m, 'in coda'); alertMsg('#esito', `Senza connessione: ${tipo.toLowerCase()} salvato sul telefono, verrà inviato appena possibile.`, 'warn'); }
+    else alertMsg('#esito', e.message, 'err');
+  }finally{ ['#btnCarico','#btnScarico'].forEach(s => $(s).disabled = false); stato(); }
+}
+function storico(m, st){
+  ultimi.unshift({...m, st}); ultimi = ultimi.slice(0, 15); LS.set('ultimi', ultimi); mostraUltimi();
+}
+function mostraUltimi(){
+  $('#ultimi').innerHTML = ultimi.map(m => `<tr><td>${new Date(m.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+    <td>${esc(m.c)}</td><td><span class="badge ${m.t==='Carico'?'ok':'warn'}">${m.t}</span></td><td class="n">${m.n}</td><td class="muted">${m.st}</td></tr>`).join('')
+    || '<tr><td class="muted">Nessun movimento</td></tr>';
+}
+async function svuotaCoda(){
+  if(!coda.length || !navigator.onLine) return;
+  const rest = [];
+  for(const m of coda){
+    try{ await api({a:'movimento', ...m}); ultimi.forEach(u => { if(u.id === m.id) u.st = 'inviato'; }); }
+    catch(e){ if(e.rete) rest.push(m); else ultimi.forEach(u => { if(u.id === m.id) u.st = 'rifiutato: ' + e.message; }); }
+  }
+  coda = rest; LS.set('coda', coda); LS.set('ultimi', ultimi); mostraUltimi(); stato();
+}
+
+/* ---------- dati, cruscotto e giacenza ---------- */
+async function caricaDati(){
+  try{
+    const j = await api({a:'dati'}); dati = {articoli:j.articoli, movimenti:j.movimenti, aggiornato:j.aggiornato};
+    LS.set('dati', dati); riempiFiltri(); disegna(); listaGiacenza();
+  }catch(e){ $('#aggiornato').textContent = (e.rete ? 'Offline: ' : 'Errore: ') + e.message; }
+}
+function riempiFiltri(){
+  if(!dati) return;
+  $('#listaCodici').innerHTML = dati.articoli.map(a => `<option value="${esc(a.codice)}">${esc(nome(a)+' '+a.finitura)}</option>`).join('');
+  const sel = $('#fCategoria'), v = sel.value;
+  const cats = [...new Set(dati.articoli.map(a => a.categoria))];
+  sel.innerHTML = '<option value="">Tutte le categorie</option>' + cats.map(c => `<option>${esc(c)}</option>`).join('');
+  sel.value = v;
+}
+function inizioPeriodo(){
+  const p = $('#fPeriodo').value, d = new Date();
+  if(p === 'anno') return new Date(d.getFullYear(), 0, 1);
+  d.setDate(d.getDate() - Number(p)); return d;
+}
+function filtroArt(){
+  const c = $('#fCategoria').value, f = $('#fFinitura').value;
+  return a => (!c || a.categoria === c) && (!f || a.finitura === f);
+}
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+function disegna(){
+  if(!dati || !window.Chart) return;
+  $('#aggiornato').textContent = 'Aggiornato alle ' + new Date(dati.aggiornato).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  const ok = filtroArt();
+  const arts = dati.articoli.filter(ok), mappa = Object.fromEntries(dati.articoli.map(a => [a.codice, a]));
+  const movs = dati.movimenti.map(m => ({d:new Date(m[0]), c:m[1], t:m[2], n:m[3], a:mappa[m[1]]})).filter(m => m.a && ok(m.a));
+  const da = inizioPeriodo();
+
+  // KPI
+  $('#kPacchi').textContent = nf.format(arts.reduce((s,a) => s + a.giacenza, 0));
+  $('#kML').textContent = nf.format(arts.reduce((s,a) => s + a.giacenza * a.ml, 0));
+  $('#kScarichi').textContent = nf.format(movs.filter(m => m.t==='Scarico' && m.d >= da).reduce((s,m) => s + m.n, 0));
+
+  // Sottoscorta / esaurimento
+  const d90 = new Date(); d90.setDate(d90.getDate() - 90);
+  const cons = {}; movs.filter(m => m.t==='Scarico' && m.d >= d90).forEach(m => cons[m.c] = (cons[m.c]||0) + m.n);
+  const righe = arts.map(a => {
+    const g = cons[a.codice] ? cons[a.codice] / 90 : 0;
+    return {a, giorni: g ? Math.floor(a.giacenza / g) : null, sotto: a.scorta != null && a.giacenza < a.scorta};
+  }).filter(r => r.sotto || (r.giorni !== null && r.giorni <= 60))
+    .sort((x,y) => (y.sotto - x.sotto) || ((x.giorni ?? 9e9) - (y.giorni ?? 9e9)));
+  $('#kSotto').textContent = arts.filter(a => a.scorta != null && a.giacenza < a.scorta).length;
+  $('#tSotto').innerHTML = righe.map(r => `<tr><td>${esc(nome(r.a))} ${esc(r.a.finitura.toLowerCase())}<br>${r.sotto ? '<span class="badge crit">⚠ Sottoscorta</span>' : '<span class="badge warn">◷ In esaurimento</span>'}</td><td class="n">${r.a.giacenza}</td>
+    <td class="n">${r.a.scorta ?? '–'}</td><td class="n">${r.giorni === null ? '–' : r.giorni + ' gg'}</td></tr>`).join('')
+    || '<tr><td colspan="4" class="muted">Nessun articolo sottoscorta. Imposta le scorte minime nel foglio (colonna gialla).</td></tr>';
+
+  const ink2 = css('--ink2'), line = css('--line'), s1 = css('--s1'), s2 = css('--s2');
+  Chart.defaults.locale = 'it-IT'; Chart.defaults.color = ink2; Chart.defaults.borderColor = line; Chart.defaults.font.family = 'system-ui,Segoe UI,Roboto,Arial';
+  const base = {responsive:true, maintainAspectRatio:false, animation:false, interaction:{mode:'index', intersect:false}};
+
+  // Top profili scaricati
+  const top = {}; movs.filter(m => m.t==='Scarico' && m.d >= da).forEach(m => top[m.c] = (top[m.c]||0) + m.n);
+  const topL = Object.entries(top).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  chart('cTop', {type:'bar', data:{labels: topL.map(([c]) => nomeCorto(mappa[c])),
+    datasets:[{label:'Pacchi scaricati', data: topL.map(x => x[1]), backgroundColor:s2, borderRadius:4, maxBarThickness:22}]},
+    options:{...base, indexAxis:'y', plugins:{legend:{display:false}, tooltip:{callbacks:{afterLabel:c => nf.format(c.raw * mappa[topL[c.dataIndex][0]].ml) + ' ML'}}},
+      scales:{x:{beginAtZero:true, ticks:{precision:0}, grid:{color:line}}, y:{grid:{display:false}}}}}, !topL.length && 'Nessuno scarico nel periodo');
+
+  // Mesi (ultimi 12)
+  const mesi = [], now = new Date();
+  for(let i = 11; i >= 0; i--){ const d = new Date(now.getFullYear(), now.getMonth() - i, 1); mesi.push(d); }
+  const key = d => d.getFullYear() + '-' + d.getMonth();
+  const car = Object.fromEntries(mesi.map(d => [key(d), 0])), sca = {...car};
+  movs.forEach(m => { const k = key(m.d); if(k in car) (m.t === 'Carico' ? car : sca)[k] += m.n * m.a.ml; });
+  chart('cMesi', {type:'bar', data:{labels: mesi.map(d => d.toLocaleDateString('it-IT',{month:'short', year:'2-digit'})),
+    datasets:[{label:'Carichi', data: mesi.map(d => car[key(d)]), backgroundColor:s1, borderRadius:4, maxBarThickness:18},
+              {label:'Scarichi', data: mesi.map(d => sca[key(d)]), backgroundColor:s2, borderRadius:4, maxBarThickness:18}]},
+    options:{...base, plugins:{legend:{position:'top', align:'start'}, tooltip:{callbacks:{label:c => `${c.dataset.label}: ${nf.format(c.raw)} ML`}}},
+      scales:{y:{beginAtZero:true, grid:{color:line}}, x:{grid:{display:false}}}}}, !movs.length && 'Nessun movimento registrato');
+
+  // Categorie
+  const cats = {}; arts.forEach(a => cats[a.categoria] = (cats[a.categoria]||0) + a.giacenza * a.ml);
+  const cl = Object.entries(cats).sort((a,b) => b[1]-a[1]);
+  chart('cCat', {type:'bar', data:{labels: cl.map(x => x[0]), datasets:[{label:'Metri lineari', data: cl.map(x => x[1]), backgroundColor:s1, borderRadius:4, maxBarThickness:40}]},
+    options:{...base, plugins:{legend:{display:false}, tooltip:{callbacks:{label:c => nf.format(c.raw) + ' ML'}}},
+      scales:{y:{beginAtZero:true, grid:{color:line}}, x:{grid:{display:false}}}}});
+}
+function chart(id, conf, vuoto){
+  if(charts[id]) charts[id].destroy();
+  const cv = document.getElementById(id), box = cv.parentElement;
+  box.querySelector('.vuoto')?.remove();
+  if(vuoto){ cv.classList.add('hidden'); box.insertAdjacentHTML('beforeend', `<p class="muted vuoto">${vuoto}</p>`); charts[id] = null; return; }
+  cv.classList.remove('hidden'); charts[id] = new Chart(cv, conf);
+}
+['#fPeriodo','#fCategoria','#fFinitura'].forEach(s => $(s).onchange = disegna);
+$('#btnAggiorna').onclick = caricaDati;
+
+function listaGiacenza(){
+  if(!dati) return;
+  const q = $('#cerca').value.trim().toLowerCase(), solo = $('#soloPresenti').checked;
+  const r = dati.articoli.filter(a => (!solo || a.giacenza > 0) &&
+    (!q || (a.codice + ' ' + nome(a) + ' ' + a.finitura + ' ' + a.categoria).toLowerCase().includes(q)));
+  $('#tGiac').innerHTML = r.map(a => `<tr><td>${esc(nome(a))} ${esc(a.finitura.toLowerCase())}<br><span class="muted">${esc(a.codice)}</span></td>
+    <td class="n"><b>${a.giacenza}</b></td><td class="n">${nf.format(a.giacenza*a.pezzi)}</td><td class="n">${nf.format(a.giacenza*a.ml)}</td>
+    <td>${a.scorta!=null && a.giacenza<a.scorta ? '<span class="badge crit">⚠ Sotto</span>' : ''}</td></tr>`).join('')
+    || '<tr><td colspan="5" class="muted">Nessun articolo</td></tr>';
+}
+$('#cerca').oninput = listaGiacenza; $('#soloPresenti').onchange = listaGiacenza;
+
+/* ---------- etichette ---------- */
+let coda_et = LS.get('etichette', []);   // [{codice, n}]
+const SIGLA_ET = {Quadri:'QUADRO', Rettangoli:'RETTANGOLO', Tondi:'TONDO', Serramenti:'SERRAMENTO', Omega:'OMEGA'};
+function svgQR(testo){
+  const q = qrcode(0, 'M'); q.addData(testo); q.make();
+  return q.createSvgTag({cellSize: 4, margin: 1, scalable: true});
+}
+function htmlEtichetta(a){
+  const prof = String(a.profilo).replace('Ø', 'Ø ');
+  const cls = prof.length <= 8 ? '' : prof.length <= 13 ? ' m' : ' s';
+  const sp = String(a.spessore).replace('.', ',');
+  return `<div class="lab"><div class="qr">${svgQR(a.codice)}</div><div class="t">
+    <span class="cat">${SIGLA_ET[a.categoria] || esc(a.categoria)}</span>
+    <span class="prof${cls}">${esc(prof)}</span>
+    <span class="sp">sp. ${sp} mm</span>
+    <span class="fin${a.finitura === 'Zincato' ? ' z' : ''}">${a.finitura === 'Zincato' ? 'ZINCATO' : 'NERO'}</span>
+    <span class="pz">${a.pezzi} pz · ${a.ml} ML</span>
+    <span class="cod">${esc(a.codice)}</span></div></div>`;
+}
+function articoloEt(c){ return dati && dati.articoli.find(a => a.codice.toUpperCase() === String(c).trim().toUpperCase()); }
+function aggiungiEt(codice, n){
+  const r = coda_et.find(x => x.codice === codice);
+  if(r) r.n += n; else coda_et.push({codice, n});
+  salvaEt();
+}
+function salvaEt(){ LS.set('etichette', coda_et); mostraEt(); }
+function mostraEt(){
+  if(dati){
+    const sel = $('#eCat'), v = sel.value;
+    sel.innerHTML = '<option value="">Tutte le categorie</option>' + [...new Set(dati.articoli.map(a => a.categoria))].map(c => `<option>${esc(c)}</option>`).join('');
+    sel.value = v;
+  }
+  const tot = coda_et.reduce((s, x) => s + x.n, 0), salta = Math.min(23, Math.max(0, +$('#eSalta').value || 0));
+  $('#eTot').textContent = tot; $('#eFogli').textContent = tot ? Math.ceil((tot + salta) / 24) : 0;
+  $('#eLista').innerHTML = coda_et.map((x, i) => { const a = articoloEt(x.codice);
+    return `<tr><td>${a ? esc(nome(a) + ' ' + a.finitura.toLowerCase()) : ''}<br><span class="muted">${esc(x.codice)}</span></td>
+      <td class="n"><input type="number" min="1" value="${x.n}" data-i="${i}" class="eN" style="width:70px;padding:6px"></td>
+      <td><button class="btn mini" data-del="${i}">✕</button></td></tr>`; }).join('')
+    || '<tr><td class="muted">Nessuna etichetta. Aggiungi un articolo qui sopra.</td></tr>';
+  document.querySelectorAll('.eN').forEach(el => el.onchange = () => { coda_et[el.dataset.i].n = Math.max(1, parseInt(el.value, 10) || 1); salvaEt(); });
+  document.querySelectorAll('[data-del]').forEach(el => el.onclick = () => { coda_et.splice(+el.dataset.del, 1); salvaEt(); });
+  // anteprima: un esempio per articolo
+  $('#anteprima').innerHTML = window.qrcode ? coda_et.slice(0, 12).map(x => { const a = articoloEt(x.codice); return a ? htmlEtichetta(a) : ''; }).join('') : '';
+}
+$('#eMeno').onclick = () => $('#eQta').value = Math.max(1, (+$('#eQta').value || 1) - 1);
+$('#ePiu').onclick = () => $('#eQta').value = (+$('#eQta').value || 0) + 1;
+$('#eAggiungi').onclick = () => {
+  const a = articoloEt($('#eArt').value);
+  if(!a) return alert(dati ? 'Codice non trovato' : 'Collegati prima al foglio (Impostazioni)');
+  aggiungiEt(a.codice, Math.max(1, parseInt($('#eQta').value, 10) || 1));
+  $('#eArt').value = ''; $('#eQta').value = 1;
+};
+$('#eArt').onkeydown = e => { if(e.key === 'Enter') $('#eAggiungi').click(); };
+const filtroCatEt = a => !$('#eCat').value || a.categoria === $('#eCat').value;
+$('#eGiacenza').onclick = () => { if(!dati) return; dati.articoli.filter(a => a.giacenza > 0 && filtroCatEt(a)).forEach(a => aggiungiEt(a.codice, a.giacenza)); };
+$('#eTipi').onclick = () => { if(!dati) return; dati.articoli.filter(filtroCatEt).forEach(a => aggiungiEt(a.codice, 1)); };
+$('#eSvuota').onclick = () => { if(confirm('Svuotare l\'elenco delle etichette?')) { coda_et = []; salvaEt(); } };
+$('#eSalta').oninput = mostraEt;
+$('#eStampa').onclick = () => {
+  if(!window.qrcode) return alert('Libreria QR non caricata: serve la connessione');
+  const celle = [];
+  const salta = Math.min(23, Math.max(0, +$('#eSalta').value || 0));
+  for(let i = 0; i < salta; i++) celle.push('<div></div>');
+  const cache = {};
+  coda_et.forEach(x => { const a = articoloEt(x.codice); if(!a) return; cache[a.codice] = cache[a.codice] || htmlEtichetta(a); for(let i = 0; i < x.n; i++) celle.push(cache[a.codice]); });
+  if(celle.length === salta) return alert('Nessuna etichetta da stampare');
+  let out = '';
+  for(let i = 0; i < celle.length; i += 24) out += '<div class="foglio">' + celle.slice(i, i + 24).join('') + '</div>';
+  $('#stampa').innerHTML = out;
+  setTimeout(() => window.print(), 100);
+};
+
+/* ---------- impostazioni ---------- */
+$('#sUrl').value = cfg.url; $('#sKey').value = cfg.key; $('#sOp').value = cfg.op;
+$('#btnSalva').onclick = async () => {
+  cfg = {url: $('#sUrl').value.trim(), key: $('#sKey').value.trim(), op: $('#sOp').value.trim()};
+  LS.set('cfg', cfg); stato();
+  try{ await api({a:'ping'}); alertMsg('#esitoImp', 'Collegamento riuscito', 'ok'); caricaDati(); svuotaCoda(); }
+  catch(e){ alertMsg('#esitoImp', e.message, 'err'); }
+};
+
+/* ---------- avvio ---------- */
+window.addEventListener('online', () => { stato(); setTimeout(svuotaCoda, 2000); });
+window.addEventListener('offline', stato);
+setInterval(() => { svuotaCoda(); if($('#v-cruscotto').classList.contains('on')) caricaDati(); }, 60000);
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+stato(); mostraUltimi(); riempiFiltri(); mostraEt();
+if(cfg.url && cfg.key){ caricaDati(); svuotaCoda(); }
+const pc = new URLSearchParams(location.search).get('c'); if(pc) apriArticolo(pc);
+</script>
+</body>
+</html>
