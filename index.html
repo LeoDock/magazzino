@@ -90,6 +90,21 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .lab .fin{font-size:8.5pt;font-weight:700;align-self:flex-start;padding:0 1mm;margin-left:-1mm}
 .lab .fin.z{background:#000;color:#fff}
 .lab .pz{font-size:7.5pt}.lab .cod{font-size:6pt;margin-top:1mm}
+/* Cartellino con foro 100x56 mm */
+.tag{width:100mm;height:56mm;position:relative;display:flex;align-items:center;font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff;box-sizing:border-box;overflow:hidden}
+.tag .foro{position:absolute;left:6mm;top:25mm;width:6mm;height:6mm;border:0.6pt solid #000;border-radius:50%;box-shadow:0 0 0 2mm #fff,0 0 0 2.1mm #999}
+.tag .qr{position:absolute;left:17mm;top:9mm;width:38mm;height:38mm}
+.tag .qr svg{width:100%;height:100%;display:block}
+.tag .t{position:absolute;left:57mm;top:5mm;right:2mm;display:flex;flex-direction:column;gap:1mm}
+.tag .cat{font-size:8pt}
+.tag .prof{font-size:20pt;font-weight:700;line-height:1.05;white-space:nowrap}
+.tag .prof.m{font-size:15pt}.tag .prof.s{font-size:11pt}
+.tag .sp{font-size:13pt;font-weight:700}
+.tag .fin{font-size:11pt;font-weight:700;align-self:flex-start;padding:0 1mm;margin-left:-1mm}
+.tag .fin.z{background:#000;color:#fff}
+.tag .pz{font-size:8.5pt}
+.tag .cod{position:absolute;left:57mm;bottom:3.5mm;font-size:6.5pt}
+#anteprima .tag{border:1px dashed #999;border-radius:6px}
 #stampa{display:none}
 @media print{
   @page{size:A4;margin:0}
@@ -98,6 +113,8 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
   #stampa{display:block}
   .foglio{width:210mm;height:297mm;padding:0.5mm 0;display:grid;grid-template-columns:repeat(3,70mm);grid-auto-rows:37mm;align-content:start;page-break-after:always;break-after:page}
   .foglio:last-child{page-break-after:auto;break-after:auto}
+  .foglio.cart{grid-template-columns:repeat(2,100mm);grid-auto-rows:56mm;padding:8.5mm 5mm}
+  .foglio.cart .tag{outline:0.3mm dashed #888;outline-offset:-0.15mm}
 }
 </style>
 </head>
@@ -192,7 +209,12 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 <section id="v-etichette" class="view">
   <div class="card">
     <h2>Crea etichette</h2>
-    <p class="muted">Foglio A4 da 24 etichette adesive 70×37 mm (3 colonne × 8 righe). Stampa al 100%, senza "adatta alla pagina".</p>
+    <label for="eFormato">Formato</label>
+    <select id="eFormato">
+      <option value="adesive">Etichette adesive 70×37 mm (24 per foglio A4)</option>
+      <option value="cartellini">Cartellini da ritagliare con foro per il gancio 100×56 mm (10 per foglio A4)</option>
+    </select>
+    <p class="muted" id="eNota">Stampa al 100%, senza "adatta alla pagina".</p>
     <label for="eArt">Articolo</label>
     <input id="eArt" list="listaCodici" placeholder="Codice o profilo (es. QUA-40x40-2-N)" autocapitalize="characters">
     <div class="row" style="margin-top:8px">
@@ -208,7 +230,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
   <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Da stampare: <span id="eTot">0</span> etichette (<span id="eFogli">0</span> fogli)</h2>
       <button class="btn mini" id="eSvuota">Svuota</button></div>
-    <label for="eSalta">Etichette già usate sul primo foglio (da saltare)</label>
+    <label for="eSalta">Posti già usati sul primo foglio (da saltare)</label>
     <input id="eSalta" type="number" min="0" max="23" value="0" inputmode="numeric" style="width:100px">
     <table style="margin-top:10px"><tbody id="eLista"></tbody></table>
     <button class="btn pri" id="eStampa" style="width:100%;margin-top:14px">Stampa / salva PDF</button>
@@ -506,6 +528,18 @@ function htmlEtichetta(a){
     <span class="pz">${a.pezzi} pz · ${a.ml} ML</span>
     <span class="cod">${esc(a.codice)}</span></div></div>`;
 }
+function htmlCartellino(a){
+  const prof = String(a.profilo).replace('Ø', 'Ø ');
+  const cls = prof.length <= 7 ? '' : prof.length <= 10 ? ' m' : ' s';
+  const sp = String(a.spessore).replace('.', ',');
+  return `<div class="tag"><div class="foro"></div><div class="qr">${svgQR(a.codice)}</div><div class="t">
+    <span class="cat">${SIGLA_ET[a.categoria] || esc(a.categoria)}</span>
+    <span class="prof${cls}">${esc(prof)}</span>
+    <span class="sp">sp. ${sp} mm</span>
+    <span class="fin${a.finitura === 'Zincato' ? ' z' : ''}">${a.finitura === 'Zincato' ? 'ZINCATO' : 'NERO'}</span>
+    <span class="pz">${a.pezzi} pz · ${a.ml} ML</span></div><span class="cod">${esc(a.codice)}</span></div>`;
+}
+const formatoEt = () => $('#eFormato').value === 'cartellini' ? {per: 10, html: htmlCartellino, cls: 'foglio cart'} : {per: 24, html: htmlEtichetta, cls: 'foglio'};
 function articoloEt(c){ return dati && dati.articoli.find(a => a.codice.toUpperCase() === String(c).trim().toUpperCase()); }
 function aggiungiEt(codice, n){
   const r = coda_et.find(x => x.codice === codice);
@@ -519,8 +553,11 @@ function mostraEt(){
     sel.innerHTML = '<option value="">Tutte le categorie</option>' + [...new Set(dati.articoli.map(a => a.categoria))].map(c => `<option>${esc(c)}</option>`).join('');
     sel.value = v;
   }
-  const tot = coda_et.reduce((s, x) => s + x.n, 0), salta = Math.min(23, Math.max(0, +$('#eSalta').value || 0));
-  $('#eTot').textContent = tot; $('#eFogli').textContent = tot ? Math.ceil((tot + salta) / 24) : 0;
+  const F = formatoEt();
+  $('#eSalta').max = F.per - 1;
+  $('#eNota').textContent = F.per === 10 ? 'Carta normale o cartoncino (meglio plastificare). Ritaglia lungo le linee tratteggiate e fora sul cerchio (Ø 6 mm). Stampa al 100%.' : 'Stampa al 100%, senza "adatta alla pagina".';
+  const tot = coda_et.reduce((s, x) => s + x.n, 0), salta = Math.min(F.per - 1, Math.max(0, +$('#eSalta').value || 0));
+  $('#eTot').textContent = tot; $('#eFogli').textContent = tot ? Math.ceil((tot + salta) / F.per) : 0;
   $('#eLista').innerHTML = coda_et.map((x, i) => { const a = articoloEt(x.codice);
     return `<tr><td>${a ? esc(nome(a) + ' ' + a.finitura.toLowerCase()) : ''}<br><span class="muted">${esc(x.codice)}</span></td>
       <td class="n"><input type="number" min="1" value="${x.n}" data-i="${i}" class="eN" style="width:70px;padding:6px"></td>
@@ -529,7 +566,7 @@ function mostraEt(){
   document.querySelectorAll('.eN').forEach(el => el.onchange = () => { coda_et[el.dataset.i].n = Math.max(1, parseInt(el.value, 10) || 1); salvaEt(); });
   document.querySelectorAll('[data-del]').forEach(el => el.onclick = () => { coda_et.splice(+el.dataset.del, 1); salvaEt(); });
   // anteprima: un esempio per articolo
-  $('#anteprima').innerHTML = window.qrcode ? coda_et.slice(0, 12).map(x => { const a = articoloEt(x.codice); return a ? htmlEtichetta(a) : ''; }).join('') : '';
+  $('#anteprima').innerHTML = window.qrcode ? coda_et.slice(0, 12).map(x => { const a = articoloEt(x.codice); return a ? F.html(a) : ''; }).join('') : '';
 }
 $('#eMeno').onclick = () => $('#eQta').value = Math.max(1, (+$('#eQta').value || 1) - 1);
 $('#ePiu').onclick = () => $('#eQta').value = (+$('#eQta').value || 0) + 1;
@@ -545,16 +582,18 @@ $('#eGiacenza').onclick = () => { if(!dati) return; dati.articoli.filter(a => a.
 $('#eTipi').onclick = () => { if(!dati) return; dati.articoli.filter(filtroCatEt).forEach(a => aggiungiEt(a.codice, 1)); };
 $('#eSvuota').onclick = () => { if(confirm('Svuotare l\'elenco delle etichette?')) { coda_et = []; salvaEt(); } };
 $('#eSalta').oninput = mostraEt;
+$('#eFormato').onchange = () => { try { localStorage.setItem('formatoEt', $('#eFormato').value); } catch(e){} mostraEt(); };
+try { const f = localStorage.getItem('formatoEt'); if(f) $('#eFormato').value = f; } catch(e){}
 $('#eStampa').onclick = () => {
   if(!window.qrcode) return alert('Libreria QR non caricata: serve la connessione');
-  const celle = [];
-  const salta = Math.min(23, Math.max(0, +$('#eSalta').value || 0));
+  const celle = [], F = formatoEt();
+  const salta = Math.min(F.per - 1, Math.max(0, +$('#eSalta').value || 0));
   for(let i = 0; i < salta; i++) celle.push('<div></div>');
   const cache = {};
-  coda_et.forEach(x => { const a = articoloEt(x.codice); if(!a) return; cache[a.codice] = cache[a.codice] || htmlEtichetta(a); for(let i = 0; i < x.n; i++) celle.push(cache[a.codice]); });
+  coda_et.forEach(x => { const a = articoloEt(x.codice); if(!a) return; cache[a.codice] = cache[a.codice] || F.html(a); for(let i = 0; i < x.n; i++) celle.push(cache[a.codice]); });
   if(celle.length === salta) return alert('Nessuna etichetta da stampare');
   let out = '';
-  for(let i = 0; i < celle.length; i += 24) out += '<div class="foglio">' + celle.slice(i, i + 24).join('') + '</div>';
+  for(let i = 0; i < celle.length; i += F.per) out += '<div class="' + F.cls + '">' + celle.slice(i, i + F.per).join('') + '</div>';
   $('#stampa').innerHTML = out;
   setTimeout(() => window.print(), 100);
 };

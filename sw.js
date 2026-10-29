@@ -1,5 +1,5 @@
 // Cache dell'app per l'uso senza connessione. I dati passano sempre dalla rete.
-const CACHE = 'magazzino-v2';
+const CACHE = 'magazzino-v3';
 const FILES = ['./', './index.html', './manifest.json', './icon.svg', './icon-192.png',
   'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
