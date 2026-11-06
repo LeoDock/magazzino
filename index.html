@@ -106,6 +106,11 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .tag .cod{position:absolute;left:57mm;bottom:3.5mm;font-size:6.5pt}
 #anteprima .tag{border:1px dashed #999;border-radius:6px}
 #stampa{display:none}
+.scheda-op{height:148mm;box-sizing:border-box;padding:12mm 14mm;display:flex;gap:10mm;align-items:flex-start;font-family:Arial,Helvetica,sans-serif;color:#000;border-bottom:0.3mm dashed #999}
+.scheda-op .qr{width:70mm;height:70mm;flex:none}.scheda-op .qr svg{width:100%;height:100%}
+.scheda-op .t1{font-size:12pt;color:#555}.scheda-op .t2{font-size:22pt;font-weight:700;margin:2mm 0 4mm}
+.scheda-op ol{font-size:10.5pt;line-height:1.45;padding-left:5mm;margin:0}
+.scheda-op .cod{font-family:monospace;font-size:7pt;word-break:break-all;margin-top:5mm;color:#333}
 @media print{
   @page{size:A4;margin:0}
   html,body{background:#fff!important}
@@ -114,6 +119,8 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
   .foglio{width:210mm;height:297mm;padding:0.5mm 0;display:grid;grid-template-columns:repeat(3,70mm);grid-auto-rows:37mm;align-content:start;page-break-after:always;break-after:page}
   .foglio:last-child{page-break-after:auto;break-after:auto}
   .foglio.cart{grid-template-columns:repeat(2,100mm);grid-auto-rows:56mm;padding:8.5mm 5mm}
+  .foglio-op{width:210mm;height:297mm;page-break-after:always;break-after:page}
+  .foglio-op:last-child{page-break-after:auto;break-after:auto}
   .foglio.cart .tag{outline:0.3mm dashed #888;outline-offset:-0.15mm}
 }
 </style>
@@ -253,6 +260,18 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
     <input id="sOp" placeholder="es. Mario">
     <div class="row" style="margin-top:14px"><button class="btn pri" id="btnSalva" style="flex:1">Salva e prova collegamento</button></div>
     <div id="esitoImp"></div>
+    <label for="sCodice" style="margin-top:16px">Oppure incolla il codice di attivazione ricevuto</label>
+    <div class="row"><input id="sCodice" placeholder="MT1…" autocomplete="off" style="flex:1"><button class="btn" id="btnAttiva">Attiva</button></div>
+  </div>
+  <div class="card">
+    <h2>Codici di installazione per reparti e operatori</h2>
+    <p class="muted">Scrivi un nome per riga (es. "Taglio - Mario"). Per ognuno viene creato un QR da inquadrare con la fotocamera del telefono: l'app si apre già collegata e con il nome dell'operatore. Il codice contiene la chiave: dallo solo a chi deve usare l'app.</p>
+    <textarea id="opNomi" rows="4" placeholder="Taglio - Mario&#10;Magazzino - Luca&#10;Saldatura"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="btn pri" id="btnCodici" style="flex:1">Crea codici</button>
+      <button class="btn" id="btnStampaCodici">Stampa schede</button>
+    </div>
+    <div id="listaCodiciOp"></div>
   </div>
   <div class="card">
     <h2>Inventario</h2>
@@ -645,6 +664,70 @@ $('#btnSalva').onclick = async () => {
   try{ await api({a:'ping'}); alertMsg('#esitoImp', 'Collegamento riuscito', 'ok'); caricaDati(); svuotaCoda(); }
   catch(e){ alertMsg('#esitoImp', e.message, 'err'); }
 };
+
+/* ---------- codici di attivazione ---------- */
+const URL_APP = location.origin + location.pathname;
+function creaCodice(op){
+  const json = JSON.stringify({u: cfg.url, k: cfg.key, o: op});
+  const b = btoa(String.fromCharCode(...new TextEncoder().encode(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return 'MT1' + b;
+}
+function leggiCodice(c){
+  c = String(c || '').trim();
+  const i = c.indexOf('MT1'); if(i < 0) throw new Error('Codice non valido');
+  let b = c.slice(i + 3).replace(/-/g, '+').replace(/_/g, '/'); while(b.length % 4) b += '=';
+  const d = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), ch => ch.charCodeAt(0))));
+  if(!d.u || !d.k) throw new Error('Codice non valido');
+  return {url: d.u, key: d.k, op: d.o || ''};
+}
+async function attiva(c){
+  cfg = leggiCodice(c); LS.set('cfg', cfg); stato();
+  $('#sUrl').value = cfg.url; $('#sKey').value = cfg.key; $('#sOp').value = cfg.op;
+  try{ await api({a:'ping'}); alertMsg('#esitoImp', 'Telefono configurato' + (cfg.op ? ' per ' + cfg.op : '') + ': collegamento riuscito', 'ok'); caricaDati(); svuotaCoda(); }
+  catch(e){ alertMsg('#esitoImp', e.message, 'err'); }
+}
+$('#btnAttiva').onclick = () => { try{ attiva($('#sCodice').value); $('#sCodice').value = ''; } catch(e){ alertMsg('#esitoImp', e.message, 'err'); } };
+let codiciOp = [];
+function nomiOp(){ return $('#opNomi').value.split('\n').map(x => x.trim()).filter(Boolean); }
+$('#btnCodici').onclick = () => {
+  if(!cfg.url || !cfg.key) return alert('Prima collega questo telefono al foglio');
+  if(!window.qrcode) return alert('Libreria QR non caricata: serve la connessione');
+  codiciOp = nomiOp().map(o => { const c = creaCodice(o); return {o, c, link: URL_APP + '#attiva=' + c}; });
+  $('#listaCodiciOp').innerHTML = codiciOp.map((x, i) => `<div style="display:flex;gap:12px;align-items:center;border-top:1px solid var(--line);padding:12px 0">
+    <div style="width:110px;flex:none;background:#fff;padding:4px;border-radius:6px">${svgQR(x.link)}</div>
+    <div style="min-width:0;flex:1"><b>${esc(x.o)}</b>
+      <div class="row" style="margin-top:8px"><button class="btn mini" data-cond="${i}">Condividi link</button><button class="btn mini" data-copia="${i}">Copia codice</button></div></div></div>`).join('')
+    || '<p class="muted">Scrivi almeno un nome.</p>';
+  document.querySelectorAll('[data-cond]').forEach(b => b.onclick = async () => { const x = codiciOp[+b.dataset.cond];
+    const t = 'App Magazzino Tubolari (' + x.o + '): apri questo link sul telefono per installarla già configurata\n' + x.link;
+    if(navigator.share) { try{ await navigator.share({title: 'App Magazzino Tubolari', text: t}); }catch(e){} }
+    else { try{ await navigator.clipboard.writeText(t); alert('Link copiato'); }catch(e){ prompt('Copia il link', x.link); } } });
+  document.querySelectorAll('[data-copia]').forEach(b => b.onclick = async () => { const x = codiciOp[+b.dataset.copia];
+    try{ await navigator.clipboard.writeText(x.c); alert('Codice copiato'); }catch(e){ prompt('Copia il codice', x.c); } });
+};
+$('#btnStampaCodici').onclick = () => {
+  if(!codiciOp.length) $('#btnCodici').click();
+  if(!codiciOp.length) return;
+  const schede = codiciOp.map(x => `<div class="scheda-op">
+    <div class="qr">${svgQR(x.link)}</div>
+    <div><div class="t1">App Magazzino Tubolari</div><div class="t2">${esc(x.o)}</div>
+    <ol><li>Inquadra il QR con la fotocamera del telefono e apri il link (Chrome su Android, Safari su iPhone).</li>
+    <li>Compare "Telefono configurato": l'app è già collegata e con il tuo nome.</li>
+    <li>Android: menu ⋮ → Aggiungi a schermata Home. iPhone: Condividi → Aggiungi a Home.</li>
+    <li>iPhone: se l'app dalla Home chiede il collegamento, vai in Opzioni e incolla il codice qui sotto.</li></ol>
+    <div class="cod">${esc(x.c)}</div></div></div>`);
+  let out = '';
+  for(let i = 0; i < schede.length; i += 2) out += '<div class="foglio-op">' + schede.slice(i, i + 2).join('') + '</div>';
+  $('#stampa').innerHTML = out;
+  setTimeout(() => window.print(), 100);
+};
+(function(){
+  const m = location.hash.match(/attiva=([^&]+)/);
+  if(!m) return;
+  history.replaceState(null, '', location.pathname);
+  try{ attiva(decodeURIComponent(m[1])); document.querySelector('nav button[data-v=impostazioni]').click(); }
+  catch(e){ alert('Codice di attivazione non valido'); }
+})();
 
 /* ---------- avvio ---------- */
 window.addEventListener('online', () => { stato(); setTimeout(svuotaCoda, 2000); });
