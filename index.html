@@ -131,6 +131,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 
 <!-- SCANSIONE -->
 <section id="v-scan" class="view on">
+  <div id="avvisoInv" class="msg warn hidden">MODALITÀ INVENTARIO attiva: ogni scansione aggiunge pacchi alla giacenza. Disattivala in Opzioni a inventario finito.</div>
   <div id="avvisoConfig" class="msg warn hidden">Prima apri <b>Opzioni</b> e inserisci l'indirizzo dello script e la chiave.</div>
   <div class="card" id="boxScanner">
     <div id="reader"></div>
@@ -152,6 +153,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
     <div class="row" style="margin-top:14px">
       <button class="btn big carico" id="btnCarico">CARICO</button>
       <button class="btn big scarico" id="btnScarico">SCARICO</button>
+      <button class="btn big pri hidden" id="btnInventario">AGGIUNGI A INVENTARIO</button>
     </div>
     <div id="esito"></div>
     <button class="btn" id="btnAltro" style="width:100%;margin-top:10px">Scansiona un altro pacco</button>
@@ -251,6 +253,19 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
     <input id="sOp" placeholder="es. Mario">
     <div class="row" style="margin-top:14px"><button class="btn pri" id="btnSalva" style="flex:1">Salva e prova collegamento</button></div>
     <div id="esitoImp"></div>
+  </div>
+  <div class="card">
+    <h2>Inventario</h2>
+    <label class="row" style="gap:8px;font-size:15px;color:var(--ink)"><input type="checkbox" id="sInv" style="width:auto"> Modalità inventario</label>
+    <p class="muted">Per la conta iniziale o dopo un reset: la schermata Scansiona mostra un solo pulsante che aggiunge i pacchi alla giacenza. Questi movimenti non contano nei grafici dei carichi.</p>
+  </div>
+  <div class="card">
+    <h2>Reset magazzino</h2>
+    <p class="muted">Azzera la giacenza di tutti gli articoli e sposta i movimenti nel foglio "Archivio movimenti" (lo storico resta per le statistiche). Poi si reinserisce tutto con la modalità inventario o scrivendo i numeri nel foglio.</p>
+    <label for="sPw">Password di reset</label>
+    <input id="sPw" type="password" autocomplete="off">
+    <button class="btn" id="btnReset" style="width:100%;margin-top:12px;background:var(--crit);color:#fff">Azzera magazzino</button>
+    <div id="esitoReset"></div>
   </div>
   <div class="card">
     <h2>Installare l'app sul telefono</h2>
@@ -366,6 +381,30 @@ $('#piu').onclick = () => $('#pacchi').value = (+$('#pacchi').value||0) + 1;
 $('#btnAltro').onclick = () => { $('#boxArticolo').classList.add('hidden'); $('#boxScanner').classList.remove('hidden'); $('#manuale').value=''; avviaScanner(); };
 $('#btnCarico').onclick = () => registra('Carico');
 $('#btnScarico').onclick = () => registra('Scarico');
+$('#btnInventario').onclick = () => registra('Inventario');
+function modoInventario(){
+  const on = LS.get('inventario', false);
+  $('#sInv').checked = on;
+  ['#btnCarico','#btnScarico'].forEach(x => $(x).classList.toggle('hidden', on));
+  $('#btnInventario').classList.toggle('hidden', !on);
+  $('#avvisoInv').classList.toggle('hidden', !on);
+}
+$('#sInv').onchange = () => { LS.set('inventario', $('#sInv').checked); modoInventario(); };
+$('#btnReset').onclick = async () => {
+  const pw = $('#sPw').value;
+  if(!pw) return alertMsg('#esitoReset', 'Inserisci la password', 'err');
+  if(!confirm('ATTENZIONE: la giacenza di tutti gli articoli verrà azzerata e i movimenti archiviati. Continuare?')) return;
+  if(!confirm('Confermi il reset del magazzino?')) return;
+  $('#btnReset').disabled = true;
+  try{
+    const j = await api({a:'reset', pw});
+    $('#sPw').value = '';
+    LS.set('inventario', true); modoInventario();
+    alertMsg('#esitoReset', j.msg + '. Modalità inventario attivata.', 'ok');
+    caricaDati();
+  }catch(e){ alertMsg('#esitoReset', e.message, 'err'); }
+  finally{ $('#btnReset').disabled = false; }
+};
 
 async function registra(tipo){
   if(!corrente) return;
@@ -375,7 +414,7 @@ async function registra(tipo){
     return alertMsg('#esito', `In giacenza ci sono solo ${corrente.giacenza} pacchi`, 'err');
   if(!cfg.op && !confirm('Nessun nome operatore impostato. Registrare comunque?')) return;
   const m = {id:uid(), c:corrente.codice, t:tipo, n, o:cfg.op||'', note:$('#note').value.trim(), ts:Date.now()};
-  ['#btnCarico','#btnScarico'].forEach(s => $(s).disabled = true);
+  ['#btnCarico','#btnScarico','#btnInventario'].forEach(s => $(s).disabled = true);
   try{
     const j = await api({a:'movimento', ...m});
     corrente = j.articolo; aggiornaLocale(j.articolo); mostraArticolo(j.articolo);
@@ -384,14 +423,14 @@ async function registra(tipo){
   }catch(e){
     if(e.rete){ coda.push(m); LS.set('coda', coda); storico(m, 'in coda'); alertMsg('#esito', `Senza connessione: ${tipo.toLowerCase()} salvato sul telefono, verrà inviato appena possibile.`, 'warn'); }
     else alertMsg('#esito', e.message, 'err');
-  }finally{ ['#btnCarico','#btnScarico'].forEach(s => $(s).disabled = false); stato(); }
+  }finally{ ['#btnCarico','#btnScarico','#btnInventario'].forEach(s => $(s).disabled = false); stato(); }
 }
 function storico(m, st){
   ultimi.unshift({...m, st}); ultimi = ultimi.slice(0, 15); LS.set('ultimi', ultimi); mostraUltimi();
 }
 function mostraUltimi(){
   $('#ultimi').innerHTML = ultimi.map(m => `<tr><td>${new Date(m.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
-    <td>${esc(m.c)}</td><td><span class="badge ${m.t==='Carico'?'ok':'warn'}">${m.t}</span></td><td class="n">${m.n}</td><td class="muted">${m.st}</td></tr>`).join('')
+    <td>${esc(m.c)}</td><td><span class="badge ${m.t==='Scarico'?'warn':'ok'}">${m.t}</span></td><td class="n">${m.n}</td><td class="muted">${m.st}</td></tr>`).join('')
     || '<tr><td class="muted">Nessun movimento</td></tr>';
 }
 async function svuotaCoda(){
@@ -473,7 +512,7 @@ function disegna(){
   for(let i = 11; i >= 0; i--){ const d = new Date(now.getFullYear(), now.getMonth() - i, 1); mesi.push(d); }
   const key = d => d.getFullYear() + '-' + d.getMonth();
   const car = Object.fromEntries(mesi.map(d => [key(d), 0])), sca = {...car};
-  movs.forEach(m => { const k = key(m.d); if(k in car) (m.t === 'Carico' ? car : sca)[k] += m.n * m.a.ml; });
+  movs.forEach(m => { const k = key(m.d); if(k in car && (m.t === 'Carico' || m.t === 'Scarico')) (m.t === 'Carico' ? car : sca)[k] += m.n * m.a.ml; });
   chart('cMesi', {type:'bar', data:{labels: mesi.map(d => d.toLocaleDateString('it-IT',{month:'short', year:'2-digit'})),
     datasets:[{label:'Carichi', data: mesi.map(d => car[key(d)]), backgroundColor:s1, borderRadius:4, maxBarThickness:18},
               {label:'Scarichi', data: mesi.map(d => sca[key(d)]), backgroundColor:s2, borderRadius:4, maxBarThickness:18}]},
@@ -612,7 +651,7 @@ window.addEventListener('online', () => { stato(); setTimeout(svuotaCoda, 2000);
 window.addEventListener('offline', stato);
 setInterval(() => { svuotaCoda(); if($('#v-cruscotto').classList.contains('on')) caricaDati(); }, 60000);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
-stato(); mostraUltimi(); riempiFiltri(); mostraEt();
+stato(); mostraUltimi(); riempiFiltri(); mostraEt(); modoInventario();
 if(cfg.url && cfg.key){ caricaDati(); svuotaCoda(); }
 const pc = new URLSearchParams(location.search).get('c'); if(pc) apriArticolo(pc);
 </script>
