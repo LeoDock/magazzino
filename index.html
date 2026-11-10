@@ -164,6 +164,18 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
     </div>
     <div id="esito"></div>
     <button class="btn" id="btnAltro" style="width:100%;margin-top:10px">Scansiona un altro pacco</button>
+    <button class="btn mini" id="btnRett" style="width:100%;margin-top:10px">🔒 Correggi giacenza di questo articolo</button>
+    <div id="boxRett" class="hidden" style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+      <p class="muted" style="margin:0 0 6px">Imposta il numero esatto di pacchi presenti (0 = azzera). La differenza viene registrata come rettifica di inventario e non conta nei grafici.</p>
+      <label for="rettN">Pacchi realmente presenti</label>
+      <div class="stepper"><button class="btn" id="rettMeno">−</button><input id="rettN" type="number" min="0" value="0" inputmode="numeric"><button class="btn" id="rettPiu">+</button></div>
+      <div id="rettPwBox"><label for="rettPw">Password</label><input id="rettPw" type="password" autocomplete="off"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="rettAzzera" style="flex:1">Azzera</button>
+        <button class="btn pri" id="rettOk" style="flex:2">Conferma giacenza</button>
+      </div>
+      <div id="esitoRett"></div>
+    </div>
   </div>
 
   <div class="card">
@@ -382,6 +394,8 @@ function mostraArticolo(a){
   corrente = a;
   $('#boxScanner').classList.add('hidden'); $('#boxArticolo').classList.remove('hidden');
   $('#pacchi').value = 1; $('#note').value = '';
+  $('#boxRett').classList.add('hidden'); $('#esitoRett').innerHTML = '';
+  $('#btnRett').classList.toggle('hidden', !a.profilo);
   if(a.profilo){
     $('#artTitolo').textContent = nome(a) + ' · ' + a.finitura;
     $('#artSub').innerHTML = `${esc(a.codice)} · pacco da ${a.pezzi} pezzi (${a.ml} ML)<br>In giacenza: <b>${a.giacenza} pacchi</b>` +
@@ -397,6 +411,37 @@ $('#btnManuale').onclick = () => { if($('#manuale').value.trim()) { fermaScanner
 $('#manuale').onkeydown = e => { if(e.key === 'Enter') $('#btnManuale').click(); };
 $('#meno').onclick = () => $('#pacchi').value = Math.max(1, (+$('#pacchi').value||1) - 1);
 $('#piu').onclick = () => $('#pacchi').value = (+$('#pacchi').value||0) + 1;
+/* correzione giacenza del singolo articolo (password controllata dallo script) */
+let pwRett = '', pwRettScad = 0;              // ricordata per 10 minuti, poi va reinserita
+const pwValida = () => pwRett && Date.now() < pwRettScad;
+$('#btnRett').onclick = () => {
+  const box = $('#boxRett'); box.classList.toggle('hidden');
+  $('#rettN').value = corrente && corrente.giacenza != null ? corrente.giacenza : 0;
+  $('#rettPwBox').classList.toggle('hidden', pwValida()); $('#esitoRett').innerHTML = '';
+};
+$('#rettMeno').onclick = () => $('#rettN').value = Math.max(0, (+$('#rettN').value || 0) - 1);
+$('#rettPiu').onclick = () => $('#rettN').value = (+$('#rettN').value || 0) + 1;
+$('#rettAzzera').onclick = () => { $('#rettN').value = 0; $('#rettOk').click(); };
+$('#rettOk').onclick = async () => {
+  if(!corrente || !corrente.profilo) return;
+  const n = parseInt($('#rettN').value, 10);
+  if(!(n >= 0)) return alertMsg('#esitoRett', 'Numero non valido', 'err');
+  const pw = pwValida() ? pwRett : $('#rettPw').value;
+  if(!pw) return alertMsg('#esitoRett', 'Inserisci la password', 'err');
+  if(!confirm(`${nome(corrente)} ${corrente.finitura.toLowerCase()}: giacenza da ${corrente.giacenza} a ${n} pacchi?`)) return;
+  $('#rettOk').disabled = $('#rettAzzera').disabled = true;
+  try{
+    const j = await api({a:'rettifica', c: corrente.codice, n, pw, o: cfg.op || ''});
+    pwRett = pw; pwRettScad = Date.now() + 10 * 60 * 1000; $('#rettPw').value = '';
+    const prima = corrente.giacenza;
+    corrente = j.articolo; aggiornaLocale(j.articolo); mostraArticolo(j.articolo);
+    alertMsg('#esito', `Giacenza corretta: da ${prima} a ${j.articolo.giacenza} pacchi.`, 'ok');
+    storico({id: uid(), c: j.articolo.codice, t: 'Rettifica', n: j.articolo.giacenza - prima, ts: Date.now()}, 'inviato');
+  }catch(e){
+    if(/password/i.test(e.message)) { pwRett = ''; $('#rettPwBox').classList.remove('hidden'); }
+    alertMsg('#esitoRett', e.message === 'Azione sconosciuta' ? 'Lo script Google va ancora aggiornato per questa funzione.' : e.message, 'err');
+  }finally{ $('#rettOk').disabled = $('#rettAzzera').disabled = false; }
+};
 $('#btnAltro').onclick = () => { $('#boxArticolo').classList.add('hidden'); $('#boxScanner').classList.remove('hidden'); $('#manuale').value=''; avviaScanner(); };
 $('#btnCarico').onclick = () => registra('Carico');
 $('#btnScarico').onclick = () => registra('Scarico');
