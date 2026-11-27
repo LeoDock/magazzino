@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f3a5f">
+<title>Giacenze Tubolari</title>
+<style>
+:root{--bg:#eef1f5;--card:#fff;--ink:#16181d;--ink2:#5b6270;--line:#e3e7ee;--grey:#dcdfe4;--crit:#a50e0e;--crit-bg:#f8d4d1;--brand:#1f3a5f}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+header{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;padding:12px 14px 10px;padding-top:calc(12px + env(safe-area-inset-top))}
+header .r1{display:flex;align-items:center;gap:10px}
+header h1{font-size:18px;margin:0;flex:1;letter-spacing:.3px}
+#agg{border:0;background:rgba(255,255,255,.16);color:#fff;font:inherit;font-weight:600;padding:7px 12px;border-radius:99px}
+#stato{font-size:12px;opacity:.85;margin-top:4px}
+#tot{font-size:13px;font-weight:700;margin-top:2px}
+nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:var(--bg);position:sticky;top:calc(78px + env(safe-area-inset-top));z-index:4;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:none;border:0;border-radius:99px;padding:8px 14px;font:inherit;font-weight:700;font-size:13px;color:#fff;opacity:.55}
+nav button.on{opacity:1;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+main{padding:0 10px 24px;max-width:900px;margin:0 auto}
+.cerca{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;margin:0 0 10px;background:#fff}
+section{background:var(--card);border-radius:14px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+section h2{margin:0;padding:10px 12px;color:#fff;font-size:15px;display:flex;justify-content:space-between;align-items:baseline}
+section h2 small{font-weight:600;opacity:.9}
+table{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}
+th,td{text-align:center;padding:7px 2px;border-bottom:1px solid var(--line)}
+thead th{font-size:11px;color:var(--ink2);font-weight:700;background:#f7f8fa}
+thead tr.fin th{font-size:10px;letter-spacing:.5px;color:#fff;padding:4px 2px}
+thead tr.fin th.n{background:#3c3c3c}thead tr.fin th.z{background:#8fa9bd}
+td.dim{font-weight:700;text-align:left;padding-left:10px;white-space:nowrap;font-size:14px}
+td.v{font-weight:800;font-size:16px}
+td.v.zero{color:#b3b8c2;font-weight:600}
+td.na{background:var(--grey)}
+td.sotto{background:var(--crit-bg);color:var(--crit)}
+td.sep,th.sep{border-left:2px solid #c9d1dc}
+tbody tr:nth-child(even) td:not(.na):not(.sotto){background:#fafbfc}
+.leg{font-size:12px;color:var(--ink2);margin:4px 2px 12px;display:flex;gap:14px;flex-wrap:wrap}
+.leg i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+.msg{background:#fff4d6;color:#7a5200;border-radius:10px;padding:12px;margin:10px 0;font-weight:600}
+.vuoto{color:var(--ink2);text-align:center;padding:30px 10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="r1"><h1>Giacenze Tubolari</h1><button id="agg">↻ Aggiorna</button></div>
+  <div id="tot">&nbsp;</div>
+  <div id="stato">Caricamento…</div>
+</header>
+<nav id="cat"></nav>
+<main>
+  <div id="msg"></div>
+  <input class="cerca" id="cerca" placeholder="Cerca misura (es. 40x40, 60x30, Ø48)" inputmode="search">
+  <div class="leg"><span><i style="background:#b3b8c2"></i>· = 0 pacchi</span><span><i style="background:#dcdfe4"></i>non prodotto</span><span><i style="background:#f8d4d1"></i>sotto scorta</span></div>
+  <div id="tabelle"><div class="vuoto">Caricamento…</div></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const LS = { get(k, d){ try{ const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+             set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} } };
+// configurazione: passata dall'app nell'indirizzo (#u=...&k=...), poi ricordata
+function leggiCodice(c){
+  c = String(c || '').trim();
+  const i = c.indexOf('MT1'); if(i < 0) throw new Error('Codice non valido');
+  let b = c.slice(i + 3).replace(/[^A-Za-z0-9_-]/g, '').replace(/-/g, '+').replace(/_/g, '/'); while(b.length % 4) b += '=';
+  const d = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), ch => ch.charCodeAt(0))));
+  if(!d.u || !d.k) throw new Error('Codice non valido');
+  return {u: d.u, k: d.k};
+}
+(function(){
+  const h = new URLSearchParams(location.hash.slice(1));
+  try{ if(h.get('attiva')) LS.set('cons', leggiCodice(h.get('attiva'))); }catch(e){}
+  if(location.hash) history.replaceState(null, '', location.pathname);
+})();
+let cfg = LS.get('cons', null);
+function chiediCodice(err){
+  $('#stato').textContent = ''; $('#tot').innerHTML = '&nbsp;';
+  $('#tabelle').innerHTML = `<section style="padding:16px"><b>Attiva l'app</b>
+    <p style="color:#5b6270;margin:6px 0 10px">Incolla il codice di attivazione ricevuto (inizia con MT1). Va fatto una sola volta.</p>
+    <textarea id="codAtt" rows="4" class="cerca" style="font-family:monospace;font-size:12px"></textarea>
+    <button id="btnAtt" style="width:100%;border:0;border-radius:10px;padding:12px;background:#1f3a5f;color:#fff;font:inherit;font-weight:700">Attiva</button>
+    ${err ? '<div class="msg">' + esc(err) + '</div>' : ''}</section>`;
+  $('#btnAtt').onclick = () => { try{ cfg = leggiCodice($('#codAtt').value); LS.set('cons', cfg); carica(); } catch(e){ chiediCodice(e.message); } };
+}
+const ORDINE = ['Quadri', 'Rettangoli', 'Tondi', 'Omega', 'Serramenti'];
+const STILE = { Quadri:'#1f4e79', Rettangoli:'#0b6e72', Tondi:'#b45f06', Omega:'#674ea7', Serramenti:'#38761d' };
+const SP = { Quadri:[1.5,2,3], Rettangoli:[1.5,2,3], Tondi:[2,2.5,3], Serramenti:[1.5,2,3], Omega:[2,3] };
+const nf = new Intl.NumberFormat('it-IT');
+let dati = LS.get('consDati', null), catSel = LS.get('consCat', 'Tutte'), caricando = false;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const spTxt = s => String(s).replace('.', ',');
+
+async function carica(){
+  if(!cfg) return chiediCodice();
+  if(caricando) return; caricando = true;
+  $('#stato').textContent = 'Aggiornamento in corso…'; $('#agg').disabled = true;
+  try{
+    const u = new URL(cfg.u); u.searchParams.set('a', 'dati'); u.searchParams.set('k', cfg.k); u.searchParams.set('_', Date.now());
+    const r = await fetch(u.toString(), {cache: 'no-store', redirect: 'follow'});
+    const j = await r.json();
+    if(!j.ok){ if(/chiave/i.test(j.errore || '')){ LS.set('cons', null); cfg = null; caricando = false; $('#agg').disabled = false; return chiediCodice('Codice non più valido: chiedi un nuovo codice.'); } throw new Error(j.errore || 'Errore'); }
+    dati = {articoli: j.articoli, aggiornato: j.aggiornato};
+    LS.set('consDati', dati); $('#msg').innerHTML = '';
+  }catch(e){
+    $('#msg').innerHTML = '<div class="msg">' + (dati ? 'Nessuna connessione: mostro gli ultimi dati scaricati.' : 'Impossibile scaricare le giacenze: ' + esc(e.message)) + '</div>';
+  }finally{ caricando = false; $('#agg').disabled = false; if(cfg) disegna(); }
+}
+
+function disegna(){
+  if(!dati) return;
+  const t = new Date(dati.aggiornato);
+  $('#stato').textContent = 'Aggiornato il ' + t.toLocaleDateString('it-IT') + ' alle ' + t.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+  $('#tot').textContent = 'Totale magazzino: ' + nf.format(dati.articoli.reduce((s, a) => s + a.giacenza, 0)) + ' pacchi';
+  const cats = ORDINE.filter(c => dati.articoli.some(a => a.categoria === c));
+  if(catSel !== 'Tutte' && !cats.includes(catSel)) catSel = 'Tutte';
+  $('#cat').innerHTML = ['Tutte'].concat(cats).map(c => `<button data-c="${c}" class="${c === catSel ? 'on' : ''}" style="background:${STILE[c] || '#1f3a5f'}">${c}</button>`).join('');
+  document.querySelectorAll('#cat button').forEach(b => b.onclick = () => { catSel = b.dataset.c; LS.set('consCat', catSel); disegna(); scrollTo(0, 0); });
+  const q = $('#cerca').value.trim().toLowerCase().replace(/\s/g, '');
+  let html = '';
+  (catSel === 'Tutte' ? cats : [catSel]).forEach(cat => {
+    const arts = dati.articoli.filter(a => a.categoria === cat), sp = SP[cat] || [...new Set(arts.map(a => a.spessore))];
+    const profili = [...new Set(arts.map(a => a.profilo))].filter(p => !q || p.toLowerCase().replace(/\s/g, '').includes(q));
+    if(!profili.length) return;
+    const mappa = {}; arts.forEach(a => mappa[a.profilo + '|' + a.spessore + '|' + a.finitura] = a);
+    const tot = arts.reduce((s, a) => s + a.giacenza, 0);
+    html += `<section><h2 style="background:${STILE[cat]}">${cat.toUpperCase()} <small>${nf.format(tot)} pacchi</small></h2><table>
+      <thead><tr class="fin"><th></th><th class="n" colspan="${sp.length}">NERO</th><th class="z sep" colspan="${sp.length}">ZINCATO</th></tr>
+      <tr><th style="text-align:left;padding-left:10px">mm</th>${sp.map(s => `<th>${spTxt(s)}</th>`).join('')}${sp.map((s, i) => `<th class="${i ? '' : 'sep'}">${spTxt(s)}</th>`).join('')}</tr></thead><tbody>`;
+    profili.forEach(p => {
+      html += `<tr><td class="dim" style="color:${STILE[cat]}">${esc(p)}</td>`;
+      ['Nero', 'Zincato'].forEach(f => sp.forEach((s, i) => {
+        const a = mappa[p + '|' + s + '|' + f], sep = f === 'Zincato' && !i ? ' sep' : '';
+        if(!a) html += `<td class="na${sep}"></td>`;
+        else {
+          const sotto = a.scorta != null && a.giacenza < a.scorta;
+          html += `<td class="v${a.giacenza ? '' : ' zero'}${sotto ? ' sotto' : ''}${sep}">${a.giacenza || '·'}</td>`;
+        }
+      }));
+      html += '</tr>';
+    });
+    html += '</tbody></table></section>';
+  });
+  $('#tabelle').innerHTML = html || '<div class="vuoto">Nessuna misura trovata</div>';
+}
+$('#cerca').oninput = disegna;
+$('#agg').onclick = carica;
+// aggiorna a ogni apertura e ogni volta che si torna sull'app
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') carica(); });
+window.addEventListener('pageshow', e => { if(e.persisted) carica(); });
+window.aggiornaDaApp = carica;   // chiamata dall'app Android quando torna in primo piano
+disegna(); carica();
+</script>
+</body>
+</html>

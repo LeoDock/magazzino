@@ -1,0 +1,18 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'it.profilsider.giacenze'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'it.profilsider.giacenze'
+        minSdk 24
+        targetSdk 34
+        versionCode Integer.parseInt(System.getenv('VERSION_CODE') ?: '1')
+        versionName '1.' + (System.getenv('VERSION_CODE') ?: '1')
+    }
+    signingConfigs {
+        // chiave fissa nel repository: permette di installare gli aggiornamenti sopra la versione precedente
+        firma { storeFile file('giacenze.keystore'); storePassword 'profilsider'; keyAlias 'giacenze'; keyPassword 'profilsider' }
+    }
+    buildTypes { release { minifyEnabled false; signingConfig signingConfigs.firma } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
