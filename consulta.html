@@ -4,18 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1f3a5f">
-<title>Giacenze Tubolari</title>
+<title>Giacenze Tubolari Profilsider</title>
 <style>
 :root{--bg:#eef1f5;--card:#fff;--ink:#16181d;--ink2:#5b6270;--line:#e3e7ee;--grey:#dcdfe4;--crit:#a50e0e;--crit-bg:#f8d4d1;--brand:#1f3a5f}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
 header{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;padding:12px 14px 10px;padding-top:calc(12px + env(safe-area-inset-top))}
 header .r1{display:flex;align-items:center;gap:10px}
-header h1{font-size:18px;margin:0;flex:1;letter-spacing:.3px}
+header h1{font-size:17px;margin:0;flex:1;letter-spacing:.2px;line-height:1.2}
+header .pw{font-size:11px;font-weight:700;color:#f6b26b;letter-spacing:.4px;margin-top:2px}
 #agg{border:0;background:rgba(255,255,255,.16);color:#fff;font:inherit;font-weight:600;padding:7px 12px;border-radius:99px}
 #stato{font-size:12px;opacity:.85;margin-top:4px}
 #tot{font-size:13px;font-weight:700;margin-top:2px}
-nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:var(--bg);position:sticky;top:calc(78px + env(safe-area-inset-top));z-index:4;scrollbar-width:none}
+nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:var(--bg);position:sticky;top:calc(94px + env(safe-area-inset-top));z-index:4;scrollbar-width:none}
 nav::-webkit-scrollbar{display:none}
 nav button{flex:none;border:0;border-radius:99px;padding:8px 14px;font:inherit;font-weight:700;font-size:13px;color:#fff;opacity:.55}
 nav button.on{opacity:1;box-shadow:0 2px 6px rgba(0,0,0,.18)}
@@ -44,7 +45,8 @@ tbody tr:nth-child(even) td:not(.na):not(.sotto){background:#fafbfc}
 </head>
 <body>
 <header>
-  <div class="r1"><h1>Giacenze Tubolari</h1><button id="agg">↻ Aggiorna</button></div>
+  <div class="r1"><h1>Giacenze Tubolari Profilsider</h1><button id="agg">↻ Aggiorna</button></div>
+  <div class="pw">Powered by Leonardo Piro</div>
   <div id="tot">&nbsp;</div>
   <div id="stato">Caricamento…</div>
 </header>
@@ -149,6 +151,8 @@ $('#agg').onclick = carica;
 document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') carica(); });
 window.addEventListener('pageshow', e => { if(e.persisted) carica(); });
 window.aggiornaDaApp = carica;   // chiamata dall'app Android quando torna in primo piano
+const fissaNav = () => { $('#cat').style.top = $('header').offsetHeight + 'px'; };
+addEventListener('resize', fissaNav); fissaNav();
 disegna(); carica();
 </script>
 </body>
